@@ -83,4 +83,19 @@ describe("loadConfig", () => {
   it("throws a descriptive message naming the offending field", () => {
     expect(() => loadConfig({ SIGNAL_TRANSPORT: "bogus" })).toThrow(/SIGNAL_TRANSPORT/);
   });
+
+  it("parses SIGNAL_ALLOWED_RECIPIENTS into a trimmed allowlist", () => {
+    const config = loadConfig({
+      SIGNAL_ALLOWED_RECIPIENTS: " +15551234567 , group-1, ,+15559876543 ",
+    });
+    expect(config.allowedRecipients).toEqual(
+      new Set(["+15551234567", "group-1", "+15559876543"]),
+    );
+  });
+
+  it("omits the allowlist when SIGNAL_ALLOWED_RECIPIENTS is unset or blank", () => {
+    expect(loadConfig({}).allowedRecipients).toBeUndefined();
+    expect(loadConfig({ SIGNAL_ALLOWED_RECIPIENTS: "" }).allowedRecipients).toBeUndefined();
+    expect(loadConfig({ SIGNAL_ALLOWED_RECIPIENTS: " , " }).allowedRecipients).toBeUndefined();
+  });
 });
