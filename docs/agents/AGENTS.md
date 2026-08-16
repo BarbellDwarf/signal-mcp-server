@@ -84,3 +84,8 @@ explicitly asked.
 
 The backend has no authentication. Keep the network path private, and treat the token value with
 care.
+
+An operator can set `SIGNAL_ALLOWED_RECIPIENTS` to a comma-separated allowlist. When it is set,
+`send_message` refuses any recipient outside the list and returns an error that names the blocked
+recipients. If you hit that error, do not retry against a different recipient unless the user asked
+for it. The allowlist is a hard limit, not a suggestion.

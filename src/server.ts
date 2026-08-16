@@ -13,7 +13,11 @@ export function createSignalMcpServer(client: SignalClient, config: SignalConfig
     { name: SERVER_NAME, version: SERVER_VERSION },
     { capabilities: { tools: {} } },
   );
-  const deps: ToolDeps = { client, defaultNumber: config.signalNumber };
+  const deps: ToolDeps = {
+    client,
+    defaultNumber: config.signalNumber,
+    allowedRecipients: config.allowedRecipients,
+  };
   registerTools(server, deps);
   return server;
 }

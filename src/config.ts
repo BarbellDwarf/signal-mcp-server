@@ -19,6 +19,12 @@ export interface SignalConfig {
   /** Optional bearer token required by the MCP HTTP endpoint. */
   apiToken?: string;
   logLevel: LogLevel;
+  /**
+   * Opt-in allowlist of recipients send_message may target. Empty means
+   * sending is unrestricted. Present only when SIGNAL_ALLOWED_RECIPIENTS
+   * is set to at least one entry.
+   */
+  allowedRecipients?: Set<string>;
 }
 
 const transportSchema = z.enum(["stdio", "http"]);
@@ -32,7 +38,23 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(0).max(65535).default(3000),
   SIGNAL_API_TOKEN: z.string().min(1).optional(),
   LOG_LEVEL: logLevelSchema.default("info"),
+  SIGNAL_ALLOWED_RECIPIENTS: z.string().optional(),
 });
+
+/**
+ * Split a comma-separated recipient allowlist into a Set. Each entry is
+ * trimmed and blank entries are dropped, so " a, , b " becomes {a, b}.
+ * Returns an empty Set when the variable is unset.
+ */
+function parseAllowedRecipients(raw: string | undefined): Set<string> {
+  const allowed = new Set<string>();
+  if (!raw) return allowed;
+  for (const entry of raw.split(",")) {
+    const trimmed = entry.trim();
+    if (trimmed) allowed.add(trimmed);
+  }
+  return allowed;
+}
 
 /** Copy env treating empty strings as unset, so `SIGNAL_NUMBER=` means "no default". */
 function stripEmptyStrings(env: NodeJS.ProcessEnv): Record<string, string> {
@@ -65,6 +87,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): SignalConfig {
   // Normalize the base URL: strip any trailing slashes so path joins are clean.
   const signalApiUrl = raw.SIGNAL_API_URL.replace(/\/+$/, "");
 
+  const allowedRecipients = parseAllowedRecipients(raw.SIGNAL_ALLOWED_RECIPIENTS);
   return {
     signalApiUrl,
     signalNumber: raw.SIGNAL_NUMBER,
@@ -73,6 +96,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): SignalConfig {
     port: raw.PORT,
     apiToken: raw.SIGNAL_API_TOKEN,
     logLevel: raw.LOG_LEVEL,
+    ...(allowedRecipients.size > 0 ? { allowedRecipients } : {}),
   };
 }
 

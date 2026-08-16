@@ -6,6 +6,8 @@ import { connectInMemory, type McpClientHandle } from "./mcp-client.js";
 export interface TestConfigOverrides {
   signalNumber?: string;
   apiToken?: string;
+  /** Recipients permitted by SIGNAL_ALLOWED_RECIPIENTS. Empty means unrestricted. */
+  allowedRecipients?: string[];
 }
 
 /**
@@ -24,6 +26,7 @@ export async function setupServerAndClient(
     port: 0,
     apiToken: overrides.apiToken,
     logLevel: "error",
+    allowedRecipients: new Set(overrides.allowedRecipients ?? []),
   };
   const client = new SignalClient({ baseUrl: apiUrl });
   const server = createSignalMcpServer(client, config);

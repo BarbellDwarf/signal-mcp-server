@@ -19,6 +19,7 @@ value on purpose.
 | `PORT` | `3000` | Integer from 0 to 65535 |
 | `SIGNAL_API_TOKEN` | unset | Any non-empty string |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
+| `SIGNAL_ALLOWED_RECIPIENTS` | unset | Any comma-separated string |
 
 ## SIGNAL_API_URL
 
@@ -105,3 +106,23 @@ unexpectedly. `error` keeps the output nearly silent.
 ```bash
 export LOG_LEVEL=debug
 ```
+
+## SIGNAL_ALLOWED_RECIPIENTS
+
+Opt-in recipient allowlist for `send_message`. Set it to a comma-separated list of phone numbers
+and group IDs. When it is set, `send_message` refuses to send to any recipient that is not on the
+list and returns a structured error that names the blocked recipients. It never calls the backend
+for a blocked send.
+
+```bash
+export SIGNAL_ALLOWED_RECIPIENTS=+15551234567,+15559876543
+```
+
+Whitespace around entries is ignored, and empty entries are dropped, so
+`+15551234567, , group-1` means the same as `+15551234567,group-1`. Leave the variable unset or
+empty to allow sending to anyone. That is the default, so the server behaves exactly as before
+until you set the allowlist.
+
+The allowlist guards `send_message` only. It does not restrict who can message you, and it does not
+affect any other tool. Use it when an agent might send somewhere it should not, and keep the list to
+the recipients that agent is allowed to reach.

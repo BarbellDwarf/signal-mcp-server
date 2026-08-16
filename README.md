@@ -44,6 +44,7 @@ every variable in detail.
 | `PORT` | `3000` | Bind port for the HTTP transport. |
 | `SIGNAL_API_TOKEN` | empty | Optional bearer token for the HTTP endpoint. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error`. |
+| `SIGNAL_ALLOWED_RECIPIENTS` | empty | Comma-separated allowlist of recipients `send_message` may target. |
 
 ## The tools
 

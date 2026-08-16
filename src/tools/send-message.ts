@@ -2,6 +2,18 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { fail, missingNumberError, ok, resolveNumber, type ToolDeps } from "./util.js";
 
+/**
+ * Reject a send when any recipient is outside the allowlist. Returns null when
+ * sending is unrestricted or every recipient is permitted.
+ */
+function disallowedRecipients(
+  recipients: string[],
+  allowedRecipients: Set<string> | undefined,
+): string[] {
+  if (!allowedRecipients || allowedRecipients.size === 0) return [];
+  return recipients.filter((recipient) => !allowedRecipients.has(recipient));
+}
+
 export function registerSendMessage(server: McpServer, deps: ToolDeps): void {
   server.registerTool(
     "send_message",
@@ -39,6 +51,19 @@ export function registerSendMessage(server: McpServer, deps: ToolDeps): void {
     async ({ number, message, recipients, base64_attachments, link_preview }) => {
       const sender = resolveNumber(number, deps.defaultNumber);
       if (!sender) return missingNumberError();
+
+      const blocked = disallowedRecipients(recipients, deps.allowedRecipients);
+      if (blocked.length > 0) {
+        return fail(
+          new Error(
+            `Recipients not allowed: ${blocked.join(", ")}. ` +
+              "SIGNAL_ALLOWED_RECIPIENTS restricts send_message to a fixed allowlist, " +
+              "and these recipients are not on it. Ask the user to add them to " +
+              "SIGNAL_ALLOWED_RECIPIENTS or to send to an allowed recipient.",
+          ),
+        );
+      }
+
       try {
         const result = await deps.client.sendMessage({
           number: sender,

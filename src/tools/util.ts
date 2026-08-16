@@ -5,6 +5,8 @@ export interface ToolDeps {
   client: SignalClient;
   /** Default account number from SIGNAL_NUMBER, used when a tool omits `number`. */
   defaultNumber?: string;
+  /** Opt-in allowlist of recipients send_message may target. Empty means unrestricted. */
+  allowedRecipients?: Set<string>;
 }
 
 /** Resolve the effective sender number: explicit argument wins over the default. */
