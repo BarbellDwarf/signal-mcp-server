@@ -26,7 +26,7 @@ export function missingNumberError(argumentName = "number") {
 
 /** Serialize a successful tool result as a text MCP content block. */
 export function ok<T>(data: T): { content: Array<{ type: "text"; text: string }> } {
-  return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+  return { content: [{ type: "text", text: JSON.stringify(data ?? null, null, 2) }] };
 }
 
 /**

@@ -279,8 +279,13 @@ export class SignalClient {
     return this.requestJson<AboutInfo>("/v1/about");
   }
 
-  /** GET /v1/health */
-  getHealth(): Promise<HealthInfo> {
-    return this.requestJson<HealthInfo>("/v1/health");
+  /** GET /v1/health (returns 204 No Content; report status ok when the body is empty) */
+  async getHealth(): Promise<HealthInfo> {
+    const response = await this.perform("/v1/health");
+    const text = await response.text();
+    if (!text) {
+      return { status: "ok" } as HealthInfo;
+    }
+    return JSON.parse(text) as HealthInfo;
   }
 }
