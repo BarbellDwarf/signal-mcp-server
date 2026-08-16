@@ -89,3 +89,8 @@ An operator can set `SIGNAL_ALLOWED_RECIPIENTS` to a comma-separated allowlist. 
 `send_message` refuses any recipient outside the list and returns an error that names the blocked
 recipients. If you hit that error, do not retry against a different recipient unless the user asked
 for it. The allowlist is a hard limit, not a suggestion.
+
+An AI model is not deterministic. The same request can produce different output on different runs,
+and a model can act in ways the user did not intend. Treat the agent as untrusted, keep it inside
+the allowlist and the account the operator configured, and review its actions. This software ships
+with no warranty, and the authors are not responsible for what the agent does.

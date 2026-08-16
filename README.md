@@ -67,6 +67,13 @@ If you are an agent that will call these tools, read
 [docs/agents/AGENTS.md](docs/agents/AGENTS.md) first. It explains the tool set, the default-number
 behavior, and the rules around sending.
 
+## Disclaimer
+
+This project comes with no warranty. It is provided as-is, and the authors accept no responsibility
+for anything that happens when you use it. Signal messages are real and immediate, and an AI agent
+can make mistakes. Treat the agent's output as untrusted, guardrail it, and review what it sends
+before it goes out. You are responsible for how you use this software.
+
 ## License
 
 MIT
