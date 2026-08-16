@@ -4,7 +4,7 @@ import globals from "globals";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "coverage/**", "node_modules/**"],
+    ignores: ["dist/**", "coverage/**", "node_modules/**", ".opencode-tasks/**", ".research/**", ".opencode-rundir/**"],
   },
   {
     files: ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.mjs", "*.config.js", "*.config.ts"],
