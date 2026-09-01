@@ -13,6 +13,8 @@ FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/dist ./dist
+# run as the unprivileged node user
+USER node
 EXPOSE 3000
 
 # signal-mcp-server is self-contained: it runs with just the bundled dist/index.js.
