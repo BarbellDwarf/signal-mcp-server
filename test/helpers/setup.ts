@@ -10,6 +10,8 @@ export interface TestConfigOverrides {
   allowedRecipients?: string[];
   /** Tool names to disable. Disabled tools are never registered. */
   disabledTools?: string[];
+  /** Seconds an HTTP session may sit idle before it is swept. HTTP transport only. */
+  sessionTtlSeconds?: number;
 }
 
 /**
@@ -27,6 +29,7 @@ export async function setupServerAndClient(
     host: "127.0.0.1",
     port: 0,
     maxBodyBytes: 10485760,
+    sessionTtlSeconds: overrides.sessionTtlSeconds ?? 3600,
     apiToken: overrides.apiToken,
     logLevel: "error",
     allowedRecipients: new Set(overrides.allowedRecipients ?? []),

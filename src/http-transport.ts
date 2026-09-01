@@ -75,8 +75,10 @@ function sendJson(res: ServerResponse, status: number, data: unknown): void {
  * connection per Server). Hardening that always applies: when `config.apiToken`
  * is set, every request must carry `Authorization: Bearer <token>` (checked in
  * constant time); POST bodies larger than `config.maxBodyBytes` get a 413
- * before any parsing; and requests whose Host header falls outside the allowed
- * list get a 403 from the transport's DNS rebinding protection.
+ * before any parsing; requests whose Host header falls outside the allowed
+ * list get a 403 from the transport's DNS rebinding protection; and sessions
+ * idle for more than `config.sessionTtlSeconds` are swept closed, after which
+ * their id answers 404 like any unknown session.
  *
  * @param serverFactory creates a fresh McpServer per session (tools are stateless,
  *   so this is cheap and keeps sessions isolated).
@@ -86,7 +88,42 @@ export async function startHttpServer(
   config: SignalConfig,
   logger: Logger,
 ): Promise<HttpServerHandle> {
-  const sessions = new Map<string, StreamableHTTPServerTransport>();
+  interface SessionRecord {
+    transport: StreamableHTTPServerTransport;
+    /** Time of the most recent request carrying this session id (Date.now ms). */
+    lastSeen: number;
+  }
+
+  const sessions = new Map<string, SessionRecord>();
+  // Requests currently being handled, counted per session id. The idle sweep
+  // skips sessions with an in-flight request, so it never closes a session
+  // while a request (say, a long-lived SSE GET stream) is still being handled.
+  // A count rather than a flag: one session can hold several requests at once,
+  // and finishing one must not release the others.
+  const inFlight = new Map<string, number>();
+
+  /**
+   * Count one request as activity for a session. lastSeen is marked before the
+   * request runs, so idle time is measured from the last request that arrived,
+   * and the in-flight count keeps the idle sweep from closing the session while
+   * that request is still being handled. The count is released in a finally, so
+   * a rejected or errored request cannot leak a slot.
+   */
+  async function withSessionActivity(
+    id: string,
+    record: SessionRecord,
+    run: () => Promise<void>,
+  ): Promise<void> {
+    record.lastSeen = Date.now();
+    inFlight.set(id, (inFlight.get(id) ?? 0) + 1);
+    try {
+      await run();
+    } finally {
+      const remaining = (inFlight.get(id) ?? 1) - 1;
+      if (remaining > 0) inFlight.set(id, remaining);
+      else inFlight.delete(id);
+    }
+  }
 
   const httpServer = http.createServer((req, res) => {
     void handleRequest(req, res).catch((error) => {
@@ -154,7 +191,9 @@ export async function startHttpServer(
         sendJson(res, 404, { error: "Unknown session" });
         return;
       }
-      await existing.handleRequest(req, res, parsedBody);
+      await withSessionActivity(sessionId, existing, () =>
+        existing.transport.handleRequest(req, res, parsedBody),
+      );
       // Only forget the session when the delete was accepted. A rejected
       // request (forged Host header) must leave the session untouched.
       if (res.statusCode === 200) {
@@ -164,13 +203,25 @@ export async function startHttpServer(
     }
 
     const existing = sessionId ? sessions.get(sessionId) : undefined;
-    if (existing) {
-      await existing.handleRequest(req, res, parsedBody);
+    if (sessionId && existing) {
+      await withSessionActivity(sessionId, existing, () =>
+        existing.transport.handleRequest(req, res, parsedBody),
+      );
       return;
     }
 
-    // No existing session: only initialization requests may open one.
-    if (!sessionId && !(parsedBody && isInitializeRequest(parsedBody))) {
+    // A session id the map does not know is one the server issued and has
+    // since closed (expired idle session, accepted DELETE) or one that never
+    // existed. Only an initialization request may open a session, so anything
+    // else gets the 404 the streamable HTTP spec wants for a dead session.
+    // Answering here also keeps a stale id from spinning up a throwaway
+    // transport that could only reject the request itself.
+    if (sessionId && !(parsedBody && isInitializeRequest(parsedBody))) {
+      sendJson(res, 404, { error: "Session not found" });
+      return;
+    }
+
+    if (!(parsedBody && isInitializeRequest(parsedBody))) {
       sendJson(res, 400, {
         error: "Bad Request: Mcp-Session-Id header is required for non-initialization requests",
       });
@@ -189,7 +240,7 @@ export async function startHttpServer(
       allowedHosts,
       onsessioninitialized: (id) => {
         if (holder.transport && id) {
-          sessions.set(id, holder.transport);
+          sessions.set(id, { transport: holder.transport, lastSeen: Date.now() });
         }
       },
       onsessionclosed: (id) => {
@@ -225,6 +276,38 @@ export async function startHttpServer(
   const address = httpServer.address();
   const port = address && typeof address === "object" ? address.port : config.port;
 
+  // Idle sessions expire after sessionTtlSeconds without any request carrying
+  // their id. The sweep runs at most a minute apart, but never more than half
+  // the TTL, so expiry is detected promptly without spinning on a short timer.
+  const ttlMs = config.sessionTtlSeconds * 1000;
+  const sweepIntervalMs = Math.min(Math.max(ttlMs / 2, 1_000), 60_000);
+
+  async function sweepIdleSessions(): Promise<void> {
+    const now = Date.now();
+    for (const [id, record] of sessions) {
+      if (now - record.lastSeen <= ttlMs) continue;
+      // A request still in flight keeps its session alive until it finishes;
+      // the next sweep picks the session up if it has gone idle by then.
+      if (inFlight.has(id)) continue;
+      sessions.delete(id);
+      try {
+        await record.transport.close();
+      } catch (error) {
+        logger.debug("failed to close expired session", {
+          sessionId: id,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      logger.info("closed idle HTTP session", { sessionId: id });
+    }
+  }
+
+  const idleSweep = setInterval(() => {
+    void sweepIdleSessions();
+  }, sweepIntervalMs);
+  // Housekeeping must never hold the process open on its own.
+  idleSweep.unref();
+
   // Hosts the transport accepts. The SDK compares the raw Host header, so every
   // form a local client could send is listed. The port is only known after
   // listen, because PORT=0 binds an ephemeral port. IPv6 literals arrive
@@ -252,7 +335,10 @@ export async function startHttpServer(
   return {
     url,
     close: async () => {
-      await Promise.allSettled([...sessions.values()].map((transport) => transport.close()));
+      clearInterval(idleSweep);
+      await Promise.allSettled(
+        [...sessions.values()].map((record) => record.transport.close()),
+      );
       await new Promise<void>((resolve, reject) => {
         httpServer.close((error) => (error ? reject(error) : resolve()));
       });
