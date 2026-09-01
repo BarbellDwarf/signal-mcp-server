@@ -9,7 +9,7 @@
     "signal-api-mcp": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist/index.js"
   ],
   "engines": {
     "node": ">=20"

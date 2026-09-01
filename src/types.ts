@@ -17,8 +17,8 @@ export interface SendMessageInput {
   base64Attachments?: string[];
   /** Optional link preview to attach. */
   linkPreview?: LinkPreview;
-  /** Optional text mode: normal | length_extension | extended. */
-  textMode?: "normal" | "length_extension" | "extended";
+  /** Optional text mode: normal | styled. */
+  textMode?: "normal" | "styled";
 }
 
 export interface SendMessageResult {
