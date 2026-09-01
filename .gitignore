@@ -144,3 +144,11 @@ vite.config.ts.timestamp-*
 
 # agent session worktrees
 /.worktrees/
+
+# local agent tooling and session data (never commit these)
+/.claude/
+/.opencode/
+/.opencode-rundir/
+/.opencode-tasks/
+/.research/
+/graphify-out/

@@ -46,9 +46,17 @@ export function registerSendMessage(server: McpServer, deps: ToolDeps): void {
           })
           .optional()
           .describe("Optional link preview to attach to the message."),
+        text_mode: z
+          .enum(["normal", "styled"])
+          .optional()
+          .describe(
+            "Backend text rendering mode. styled applies markdown-style formatting " +
+              "(italic, bold, strikethrough, spoiler, monospace) per the signal-cli-rest-api " +
+              "contract. Omit for the backend default.",
+          ),
       },
     },
-    async ({ number, message, recipients, base64_attachments, link_preview }) => {
+    async ({ number, message, recipients, base64_attachments, link_preview, text_mode }) => {
       const sender = resolveNumber(number, deps.defaultNumber);
       if (!sender) return missingNumberError();
 
@@ -71,6 +79,7 @@ export function registerSendMessage(server: McpServer, deps: ToolDeps): void {
           recipients,
           base64Attachments: base64_attachments,
           linkPreview: link_preview,
+          textMode: text_mode,
         });
         return ok(result);
       } catch (error) {
