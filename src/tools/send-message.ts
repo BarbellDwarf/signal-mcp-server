@@ -47,11 +47,12 @@ export function registerSendMessage(server: McpServer, deps: ToolDeps): void {
           .optional()
           .describe("Optional link preview to attach to the message."),
         text_mode: z
-          .enum(["normal", "length_extension", "extended"])
+          .enum(["normal", "styled"])
           .optional()
           .describe(
-            "Backend text rendering mode: normal, length_extension, or extended. " +
-              "Omit to let the backend use its default.",
+            "Backend text rendering mode. styled applies markdown-style formatting " +
+              "(italic, bold, strikethrough, spoiler, monospace) per the signal-cli-rest-api " +
+              "contract. Omit for the backend default.",
           ),
       },
     },

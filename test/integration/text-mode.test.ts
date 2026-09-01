@@ -24,11 +24,11 @@ describe("send_message text_mode passthrough", () => {
         .at(-1)?.body as Record<string, unknown>;
 
     await callToolJson(handle.client, "send_message", {
-      message: "long body",
+      message: "**bold** body",
       recipients: ["+15559876543"],
-      text_mode: "length_extension",
+      text_mode: "styled",
     });
-    expect(lastSendBody().text_mode).toBe("length_extension");
+    expect(lastSendBody().text_mode).toBe("styled");
 
     await callToolJson(handle.client, "send_message", {
       message: "plain body",

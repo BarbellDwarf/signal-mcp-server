@@ -28,7 +28,7 @@ Input:
 | `recipients` | array of string | yes | Recipient phone numbers and/or group IDs. |
 | `base64_attachments` | array of string | no | Files to attach, base64-encoded. |
 | `link_preview` | object | no | `{ url, title?, image? }` with the preview URL, an optional title, and an optional base64 image. |
-| `text_mode` | string | no | `normal`, `length_extension`, or `extended`, passed through to the backend. |
+| `text_mode` | string | no | `normal` or `styled`, the rendering mode the backend documents. |
 
 Endpoint: `POST /v2/send`
 
@@ -43,9 +43,9 @@ Endpoint: `POST /v2/send`
 The result contains the message timestamp. When only some recipients are reachable, the result also
 includes an `errors.recipients` map that pairs each failed recipient with its error messages.
 
-`text_mode` tells the backend how to render the body. `length_extension` and `extended` carry
-bodies longer than Signal's normal limit, and the backend falls back to its default when you leave
-it out.
+`text_mode` tells the backend how to render the body. `styled` applies markdown-style formatting
+(italic, bold, strikethrough, spoiler, monospace) per the signal-cli-rest-api contract, and the
+backend uses its default when you leave it out.
 
 ## receive_messages
 
