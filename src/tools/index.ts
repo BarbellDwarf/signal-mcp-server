@@ -16,25 +16,6 @@ import { registerRegisterNumber, registerVerifyNumber } from "./registration.js"
 import { registerSendMessage } from "./send-message.js";
 import { registerGetAbout, registerGetHealth } from "./system.js";
 
-/** Every tool name this server knows about, for forward-compatible validation. */
-const ALL_TOOL_NAMES: ReadonlySet<string> = new Set([
-  "send_message",
-  "receive_messages",
-  "list_accounts",
-  "list_contacts",
-  "list_groups",
-  "get_group",
-  "create_group",
-  "update_group",
-  "delete_group",
-  "update_profile",
-  "register_number",
-  "verify_number",
-  "link_device_qrcode",
-  "get_about",
-  "get_health",
-]);
-
 type RegisterFn = (server: McpServer, deps: ToolDeps) => void;
 
 const TOOL_ENTRIES: ReadonlyArray<[string, RegisterFn]> = [
@@ -54,6 +35,9 @@ const TOOL_ENTRIES: ReadonlyArray<[string, RegisterFn]> = [
   ["get_about", registerGetAbout],
   ["get_health", registerGetHealth],
 ];
+
+/** Every tool name this server knows about, derived from the registry. */
+const ALL_TOOL_NAMES: ReadonlySet<string> = new Set(TOOL_ENTRIES.map(([name]) => name));
 
 /** Register every non-disabled tool on the MCP server. */
 export function registerTools(server: McpServer, deps: ToolDeps): void {
