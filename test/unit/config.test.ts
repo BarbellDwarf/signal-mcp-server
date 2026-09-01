@@ -11,6 +11,7 @@ describe("loadConfig", () => {
       host: "127.0.0.1",
       port: 3000,
       maxBodyBytes: 10485760,
+      sessionTtlSeconds: 3600,
       apiToken: undefined,
       logLevel: "info",
     });
@@ -24,6 +25,7 @@ describe("loadConfig", () => {
       HOST: "0.0.0.0",
       PORT: "4242",
       SIGNAL_MAX_BODY_BYTES: "2048",
+      SIGNAL_SESSION_TTL_SECONDS: "120",
       SIGNAL_API_TOKEN: "s3cret",
       LOG_LEVEL: "debug",
       SIGNAL_ALLOWED_HOSTS: "mcp.example.com",
@@ -35,6 +37,7 @@ describe("loadConfig", () => {
       host: "0.0.0.0",
       port: 4242,
       maxBodyBytes: 2048,
+      sessionTtlSeconds: 120,
       apiToken: "s3cret",
       logLevel: "debug",
       allowedHosts: ["mcp.example.com"],
@@ -54,6 +57,7 @@ describe("loadConfig", () => {
       LOG_LEVEL: "",
       PORT: "",
       SIGNAL_MAX_BODY_BYTES: "",
+      SIGNAL_SESSION_TTL_SECONDS: "",
       SIGNAL_ALLOWED_HOSTS: "",
     });
     expect(config.signalNumber).toBeUndefined();
@@ -61,6 +65,7 @@ describe("loadConfig", () => {
     expect(config.logLevel).toBe("info");
     expect(config.port).toBe(3000);
     expect(config.maxBodyBytes).toBe(10485760);
+    expect(config.sessionTtlSeconds).toBe(3600);
     expect(config.allowedHosts).toBeUndefined();
   });
 
@@ -127,6 +132,34 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ SIGNAL_MAX_BODY_BYTES: "0" })).toThrow(/Invalid configuration/);
     expect(() => loadConfig({ SIGNAL_MAX_BODY_BYTES: "-5" })).toThrow(/Invalid configuration/);
     expect(() => loadConfig({ SIGNAL_MAX_BODY_BYTES: "1.5" })).toThrow(/Invalid configuration/);
+  });
+
+  it("defaults SIGNAL_SESSION_TTL_SECONDS to one hour", () => {
+    expect(loadConfig({}).sessionTtlSeconds).toBe(3600);
+  });
+
+  it("parses SIGNAL_SESSION_TTL_SECONDS as an integer of at least 60", () => {
+    expect(loadConfig({ SIGNAL_SESSION_TTL_SECONDS: "60" }).sessionTtlSeconds).toBe(60);
+    expect(loadConfig({ SIGNAL_SESSION_TTL_SECONDS: "7200" }).sessionTtlSeconds).toBe(7200);
+  });
+
+  it("rejects a SIGNAL_SESSION_TTL_SECONDS below the 60 second minimum", () => {
+    expect(() => loadConfig({ SIGNAL_SESSION_TTL_SECONDS: "59" })).toThrow(
+      /Invalid configuration/,
+    );
+    expect(() => loadConfig({ SIGNAL_SESSION_TTL_SECONDS: "0" })).toThrow(/Invalid configuration/);
+  });
+
+  it("rejects a junk, fractional, or negative SIGNAL_SESSION_TTL_SECONDS", () => {
+    expect(() => loadConfig({ SIGNAL_SESSION_TTL_SECONDS: "soon" })).toThrow(
+      /Invalid configuration/,
+    );
+    expect(() => loadConfig({ SIGNAL_SESSION_TTL_SECONDS: "90.5" })).toThrow(
+      /Invalid configuration/,
+    );
+    expect(() => loadConfig({ SIGNAL_SESSION_TTL_SECONDS: "-3600" })).toThrow(
+      /Invalid configuration/,
+    );
   });
 
   it("parses SIGNAL_ALLOWED_HOSTS into a trimmed, deduplicated host list", () => {

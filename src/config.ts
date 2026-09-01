@@ -21,6 +21,12 @@ export interface SignalConfig {
    * bodies are rejected with 413 before any parsing happens.
    */
   maxBodyBytes: number;
+  /**
+   * Seconds an HTTP session may sit idle before the server closes it. Idle
+   * means no request carrying the session id arrived in the window. Minimum
+   * 60, default 3600.
+   */
+  sessionTtlSeconds: number;
   /** Optional bearer token required by the MCP HTTP endpoint. */
   apiToken?: string;
   logLevel: LogLevel;
@@ -55,6 +61,7 @@ const envSchema = z.object({
   HOST: z.string().min(1).default("127.0.0.1"),
   PORT: z.coerce.number().int().min(0).max(65535).default(3000),
   SIGNAL_MAX_BODY_BYTES: z.coerce.number().int().positive().default(10485760),
+  SIGNAL_SESSION_TTL_SECONDS: z.coerce.number().int().min(60).default(3600),
   SIGNAL_API_TOKEN: z.string().min(1).optional(),
   LOG_LEVEL: logLevelSchema.default("info"),
   SIGNAL_ALLOWED_RECIPIENTS: z.string().optional(),
@@ -149,6 +156,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): SignalConfig {
     host: raw.HOST,
     port: raw.PORT,
     maxBodyBytes: raw.SIGNAL_MAX_BODY_BYTES,
+    sessionTtlSeconds: raw.SIGNAL_SESSION_TTL_SECONDS,
     apiToken: raw.SIGNAL_API_TOKEN,
     logLevel: raw.LOG_LEVEL,
     ...(allowedRecipients.size > 0 ? { allowedRecipients } : {}),

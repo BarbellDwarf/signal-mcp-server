@@ -47,6 +47,7 @@ every variable in detail.
 | `PORT` | `3000` | Bind port for the HTTP transport. |
 | `SIGNAL_API_TOKEN` | empty | Optional bearer token for the HTTP endpoint. |
 | `SIGNAL_MAX_BODY_BYTES` | `10485760` | Largest POST body the HTTP endpoint accepts, larger requests get a 413. |
+| `SIGNAL_SESSION_TTL_SECONDS` | `3600` | Seconds an HTTP session may sit idle before the server closes it. |
 | `SIGNAL_ALLOWED_HOSTS` | empty | Comma-separated Host header allowlist for the HTTP endpoint. Empty derives one from the bind host and port. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error`. |
 | `SIGNAL_ALLOWED_RECIPIENTS` | empty | Comma-separated allowlist of recipients `send_message` may target. |
