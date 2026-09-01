@@ -42,8 +42,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    # NPM_TOKEN must exist as a repo secret before tagging.
-    # GitHub Packages npm rejected as mirror because it requires scoped names.
+      # OIDC token for npm trusted publishing (no long-lived NPM_TOKEN secret).
+      id-token: write
+    # Publishing relies on a trusted publisher configured on npmjs.com for
+    # signal-api-mcp: repository BarbellDwarf/signal-mcp-server, workflow
+    # publish.yml. GitHub Packages npm rejected as mirror because it requires
+    # scoped names.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,7 +56,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          registry-url: https://registry.npmjs.org
           cache: npm
 
       - name: Install dependencies
@@ -61,10 +64,14 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Upgrade npm for trusted publishing
+        # Node 20 bundles npm 10, which cannot publish via OIDC. npm 11.5.1+
+        # authenticates the publish with the workflow's OIDC token and attaches
+        # a provenance attestation.
+        run: npm install -g npm@latest
+
       - name: Publish to npm
-        run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance
 
   publish-docker:
     needs: build-and-test
