@@ -26,6 +26,7 @@ const JSON_HEADERS = {
 interface RawResponse {
   status: number;
   body: string;
+  headers: http.IncomingHttpHeaders;
 }
 
 /**
@@ -34,22 +35,28 @@ interface RawResponse {
  */
 function rawRequest(
   url: URL,
-  options: { headers?: Record<string, string>; body?: string } = {},
+  options: { headers?: Record<string, string>; body?: string; method?: string } = {},
 ): Promise<RawResponse> {
   return new Promise((resolve, reject) => {
     const req = http.request(
       {
-        host: url.hostname,
+        // WHATWG URL keeps brackets on IPv6 hostnames; node:http wants the
+        // bare literal to connect and brackets only inside the Host header.
+        host: url.hostname.replace(/^\[/, "").replace(/\]$/, ""),
         port: url.port,
         path: url.pathname,
-        method: "POST",
+        method: options.method ?? "POST",
         headers: options.headers,
       },
       (res) => {
         const chunks: Buffer[] = [];
         res.on("data", (chunk: Buffer) => chunks.push(chunk));
         res.on("end", () => {
-          resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf8") });
+          resolve({
+            status: res.statusCode ?? 0,
+            body: Buffer.concat(chunks).toString("utf8"),
+            headers: res.headers,
+          });
         });
       },
     );
@@ -161,5 +168,66 @@ describe("HTTP transport hardening (in-process)", () => {
     });
     expect(real.status).toBe(200);
     expect(real.body).toContain('"result"');
+  });
+
+  it("accepts bracketed IPv6 Host headers and prints a parseable endpoint URL", async () => {
+    let entry: StartedServer;
+    try {
+      entry = await startServer({ host: "::1" });
+    } catch {
+      // Environment has no IPv6 loopback; the IPv4 path is covered elsewhere.
+      return;
+    }
+    // The endpoint must be a valid URL even for IPv6 binds: startServer's
+    // new URL() would have thrown on an unbracketed ::1 literal.
+    expect(entry.url.hostname).toBe("[::1]");
+    expect(entry.url.host).toBe(`[::1]:${entry.url.port}`);
+
+    const response = await rawRequest(entry.url, {
+      headers: { ...JSON_HEADERS, host: `[::1]:${entry.url.port}` },
+      body: INITIALIZE,
+    });
+    expect(response.status).toBe(200);
+    expect(response.body).toContain('"result"');
+  });
+
+  it("locks out remote Host headers on a wildcard bind unless SIGNAL_ALLOWED_HOSTS allows them", async () => {
+    const locked = await startServer({ host: "0.0.0.0" });
+    const remote = await rawRequest(locked.url, {
+      headers: { ...JSON_HEADERS, host: "192.0.2.1:3000" },
+      body: INITIALIZE,
+    });
+    expect(remote.status).toBe(403);
+
+    const opened = await startServer({ host: "0.0.0.0", allowedHosts: ["192.0.2.1:3000"] });
+    const allowed = await rawRequest(opened.url, {
+      headers: { ...JSON_HEADERS, host: "192.0.2.1:3000" },
+      body: INITIALIZE,
+    });
+    expect(allowed.status).toBe(200);
+    expect(allowed.body).toContain('"result"');
+  });
+
+  it("keeps a session alive when a forged-Host DELETE is rejected", async () => {
+    const { url } = await startServer();
+
+    const init = await rawRequest(url, { headers: { ...JSON_HEADERS }, body: INITIALIZE });
+    expect(init.status).toBe(200);
+    const sessionId = init.headers["mcp-session-id"] as string;
+    expect(sessionId).toBeTruthy();
+
+    const rejectedDelete = await rawRequest(url, {
+      method: "DELETE",
+      headers: { "mcp-session-id": sessionId!, host: "evil.example" },
+    });
+    expect(rejectedDelete.status).toBe(403);
+
+    // The session must still answer: the rejected delete never removed it.
+    const followUp = await rawRequest(url, {
+      headers: { ...JSON_HEADERS, "mcp-session-id": sessionId!, host: url.host },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+    });
+    expect(followUp.status).toBe(200);
+    expect(followUp.body).toContain('"result"');
   });
 });

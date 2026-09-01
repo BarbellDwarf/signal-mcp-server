@@ -155,7 +155,11 @@ export async function startHttpServer(
         return;
       }
       await existing.handleRequest(req, res, parsedBody);
-      sessions.delete(sessionId);
+      // Only forget the session when the delete was accepted. A rejected
+      // request (forged Host header) must leave the session untouched.
+      if (res.statusCode === 200) {
+        sessions.delete(sessionId);
+      }
       return;
     }
 
@@ -223,20 +227,27 @@ export async function startHttpServer(
 
   // Hosts the transport accepts. The SDK compares the raw Host header, so every
   // form a local client could send is listed. The port is only known after
-  // listen, because PORT=0 binds an ephemeral port. Operators behind a reverse
-  // proxy or remote gateway override this list via SIGNAL_ALLOWED_HOSTS.
+  // listen, because PORT=0 binds an ephemeral port. IPv6 literals arrive
+  // bracketed in the Host header, so both bare and bracketed forms are listed.
+  // Operators behind a reverse proxy or remote gateway override this list via
+  // SIGNAL_ALLOWED_HOSTS.
+  const hostForms = (host: string): string[] => {
+    const base = [host, `${host}:${port}`];
+    return host.includes(":") ? [...base, `[${host}]`, `[${host}]:${port}`] : base;
+  };
+  // An IPv6 any-address bind serves ::1 clients, so its forms are allowed too.
+  const boundHosts = config.host === "::" ? [config.host, "::1"] : [config.host];
   const derivedAllowedHosts = [
-    config.host,
-    `${config.host}:${port}`,
-    "localhost",
-    `localhost:${port}`,
-    "127.0.0.1",
-    `127.0.0.1:${port}`,
+    ...boundHosts.flatMap(hostForms),
+    ...hostForms("localhost"),
+    ...hostForms("127.0.0.1"),
   ];
   const allowedHosts = config.allowedHosts ?? [...new Set(derivedAllowedHosts)];
 
-  const host = config.host === "0.0.0.0" ? "127.0.0.1" : config.host;
-  const url = `http://${host}:${port}${MCP_PATH}`;
+  // Bracket IPv6 literals so the printed endpoint is a valid URL.
+  const displayHost =
+    config.host === "0.0.0.0" ? "127.0.0.1" : config.host.includes(":") ? `[${config.host}]` : config.host;
+  const url = `http://${displayHost}:${port}${MCP_PATH}`;
 
   return {
     url,

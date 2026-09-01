@@ -90,7 +90,7 @@ clients arrive under a hostname the derived list does not cover.
 ## SIGNAL_MAX_BODY_BYTES
 
 Maximum request body size for the HTTP transport, in bytes. POST requests with a larger body get a
-413 before the server reads or parses anything, so an oversized payload never reaches the MCP layer
+413 before the server parses anything, so an oversized payload never reaches the MCP layer
 or the Signal backend.
 
 ```bash
