@@ -40,6 +40,8 @@ jobs:
   publish-npm:
     needs: build-and-test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     # NPM_TOKEN must exist as a repo secret before tagging.
     # GitHub Packages npm rejected as mirror because it requires scoped names.
     steps:
