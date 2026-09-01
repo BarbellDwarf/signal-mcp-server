@@ -60,12 +60,20 @@ The server exposes fifteen MCP tools. `send_message` and `receive_messages` hand
 remaining tools cover groups, profiles, registration, linking, and the health endpoints. Every tool
 maps to one signal-cli-rest-api endpoint, and [docs/tools.md](docs/tools.md) documents them all.
 
+## Security
+
+The HTTP transport binds to `127.0.0.1` by default and accepts an optional bearer token, a
+recipient allowlist for `send_message`, DNS rebinding protection, body size limits, and session
+expiry. CI runs an audit gate on every pull request. [SECURITY.md](SECURITY.md) has the
+vulnerability reporting policy, and [docs/security.md](docs/security.md) covers the threat model.
+
 ## Guides
 
 - [Quick start](docs/quickstart.md)
 - [Configuration](docs/configuration.md)
 - [Tools](docs/tools.md)
 - [Transports and remote hosting](docs/transports.md)
+- [Security](docs/security.md)
 - [Development](docs/development.md)
 
 ## For AI agents
