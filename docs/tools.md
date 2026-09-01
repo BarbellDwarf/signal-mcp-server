@@ -10,6 +10,10 @@ Several tools take an optional `number` argument. When you leave it out, the ser
 the `SIGNAL_NUMBER` environment variable. See [docs/configuration.md](docs/configuration.md) for
 how that default works.
 
+An operator can remove tools from this list entirely with `SIGNAL_DISABLED_TOOLS`. Disabled tools
+are absent from `tools/list`, so they never show up here or in an agent's view. See
+[docs/configuration.md](docs/configuration.md#signal_disabled_tools) for details.
+
 ## send_message
 
 Sends a text message to one or more recipients. A recipient is a phone number or a group ID, and

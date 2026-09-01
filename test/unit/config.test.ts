@@ -145,4 +145,26 @@ describe("loadConfig", () => {
     expect(loadConfig({ SIGNAL_ALLOWED_HOSTS: "" }).allowedHosts).toBeUndefined();
     expect(loadConfig({ SIGNAL_ALLOWED_HOSTS: " , " }).allowedHosts).toBeUndefined();
   });
+
+  it("parses SIGNAL_DISABLED_TOOLS into a trimmed disablelist", () => {
+    const config = loadConfig({
+      SIGNAL_DISABLED_TOOLS: " register_number , verify_number , , link_device_qrcode ",
+    });
+    expect(config.disabledTools).toEqual(
+      new Set(["register_number", "verify_number", "link_device_qrcode"]),
+    );
+  });
+
+  it("omits disabledTools when SIGNAL_DISABLED_TOOLS is unset or blank", () => {
+    expect(loadConfig({}).disabledTools).toBeUndefined();
+    expect(loadConfig({ SIGNAL_DISABLED_TOOLS: "" }).disabledTools).toBeUndefined();
+    expect(loadConfig({ SIGNAL_DISABLED_TOOLS: " , " }).disabledTools).toBeUndefined();
+  });
+
+  it("deduplicates entries in SIGNAL_DISABLED_TOOLS", () => {
+    const config = loadConfig({
+      SIGNAL_DISABLED_TOOLS: "send_message,send_message,receive_messages",
+    });
+    expect(config.disabledTools).toEqual(new Set(["send_message", "receive_messages"]));
+  });
 });

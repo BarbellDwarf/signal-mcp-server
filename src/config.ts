@@ -37,6 +37,12 @@ export interface SignalConfig {
    * at least one entry.
    */
   allowedHosts?: string[];
+  /**
+   * Tool names the operator has removed from the MCP surface. Disabled tools
+   * are not registered at all (absent from tools/list), so an agent never
+   * sees them. Present only when at least one valid entry survives parsing.
+   */
+  disabledTools?: Set<string>;
 }
 
 const transportSchema = z.enum(["stdio", "http"]);
@@ -53,6 +59,7 @@ const envSchema = z.object({
   LOG_LEVEL: logLevelSchema.default("info"),
   SIGNAL_ALLOWED_RECIPIENTS: z.string().optional(),
   SIGNAL_ALLOWED_HOSTS: z.string().optional(),
+  SIGNAL_DISABLED_TOOLS: z.string().optional(),
 });
 
 /**
@@ -84,6 +91,21 @@ function parseAllowedHosts(raw: string | undefined): string[] | undefined {
     if (trimmed) hosts.add(trimmed);
   }
   return hosts.size > 0 ? [...hosts] : undefined;
+}
+
+/**
+ * Split a comma-separated tool disablelist into a Set. Each entry is
+ * trimmed and blank entries are dropped. Returns an empty Set when the
+ * variable is unset.
+ */
+function parseDisabledTools(raw: string | undefined): Set<string> {
+  const disabled = new Set<string>();
+  if (!raw) return disabled;
+  for (const entry of raw.split(",")) {
+    const trimmed = entry.trim();
+    if (trimmed) disabled.add(trimmed);
+  }
+  return disabled;
 }
 
 /** Copy env treating empty strings as unset, so `SIGNAL_NUMBER=` means "no default". */
@@ -119,6 +141,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): SignalConfig {
 
   const allowedRecipients = parseAllowedRecipients(raw.SIGNAL_ALLOWED_RECIPIENTS);
   const allowedHosts = parseAllowedHosts(raw.SIGNAL_ALLOWED_HOSTS);
+  const disabledTools = parseDisabledTools(raw.SIGNAL_DISABLED_TOOLS);
   return {
     signalApiUrl,
     signalNumber: raw.SIGNAL_NUMBER,
@@ -130,6 +153,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): SignalConfig {
     logLevel: raw.LOG_LEVEL,
     ...(allowedRecipients.size > 0 ? { allowedRecipients } : {}),
     ...(allowedHosts ? { allowedHosts } : {}),
+    ...(disabledTools.size > 0 ? { disabledTools } : {}),
   };
 }
 

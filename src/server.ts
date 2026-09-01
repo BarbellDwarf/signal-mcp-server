@@ -17,6 +17,7 @@ export function createSignalMcpServer(client: SignalClient, config: SignalConfig
     client,
     defaultNumber: config.signalNumber,
     allowedRecipients: config.allowedRecipients,
+    disabledTools: config.disabledTools,
   };
   registerTools(server, deps);
   return server;
