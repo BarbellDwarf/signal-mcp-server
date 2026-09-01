@@ -106,9 +106,10 @@ oversized requests.
 ## SIGNAL_SESSION_TTL_SECONDS
 
 How long an HTTP session may sit idle before the server closes it, in seconds. Idle means no
-request carrying that session's id arrived in the window, so every request counts, whether it
-succeeded or failed. The default is 3600, one hour, and the minimum is 60. A smaller value makes
-the server refuse to start.
+request carrying that session's id reached the session in the window, so every request that
+reaches the session counts, whether it succeeded or failed. Requests rejected earlier (wrong
+token, oversized body, unknown path) do not reset the idle clock. The default is 3600, one hour,
+and the minimum is 60. A smaller value makes the server refuse to start.
 
 ```bash
 export SIGNAL_SESSION_TTL_SECONDS=3600

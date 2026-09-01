@@ -272,6 +272,37 @@ describe("HTTP transport hardening (in-process)", () => {
     }
   });
 
+  it("keeps a session idle for exactly the TTL, closes it past the TTL", async () => {
+    useFakeSweepTimers();
+    try {
+      const { url } = await startServer({ sessionTtlSeconds: 60 });
+      const init = await rawRequest(url, { headers: { ...JSON_HEADERS }, body: INITIALIZE });
+      expect(init.status).toBe(200);
+      const sessionId = init.headers["mcp-session-id"] as string;
+
+      // t=60s: the sweep fires with exactly 60s of idle. The strictly
+      // past-TTL rule keeps the session, and the POST below (which also
+      // refreshes the clock) proves it answered.
+      vi.advanceTimersByTime(60_000);
+      const atTtl = await rawRequest(url, {
+        headers: { ...JSON_HEADERS, "mcp-session-id": sessionId!, host: url.host },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+      });
+      expect(atTtl.status).toBe(200);
+
+      // Clock is now t=60. Sweeps at t=90 (30s idle) and t=120 (60s idle)
+      // survive, the t=150 sweep sees 90s idle and closes the session.
+      vi.advanceTimersByTime(91_000);
+      const pastTtl = await rawRequest(url, {
+        headers: { ...JSON_HEADERS, "mcp-session-id": sessionId!, host: url.host },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/list" }),
+      });
+      expect(pastTtl.status).toBe(404);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps an active session alive: idle counts from the last request", async () => {
     useFakeSweepTimers();
     try {
