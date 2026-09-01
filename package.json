@@ -1,23 +1,18 @@
 {
-  "name": "signal-mcp-server",
+  "name": "signal-api-mcp",
   "version": "0.1.0",
   "description": "Model Context Protocol (MCP) server for Signal, backed by a running signal-cli-rest-api instance.",
   "type": "module",
   "license": "MIT",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "bin": {
-    "signal-mcp-server": "dist/index.js"
+    "signal-api-mcp": "dist/index.js"
   },
   "files": [
     "dist"
   ],
   "engines": {
     "node": ">=20"
-  },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://npm.pkg.github.com"
   },
   "scripts": {
     "build": "node scripts/build.mjs",

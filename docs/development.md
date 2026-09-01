@@ -59,13 +59,13 @@ docker run --rm -p 3000:3000 \
   -e SIGNAL_NUMBER=+15551234567 \
   -e SIGNAL_TRANSPORT=http \
   -e SIGNAL_API_TOKEN=replace-with-a-long-random-string \
-  signal-mcp-server
+  signal-api-mcp
 ```
 
 Build the image locally with:
 
 ```bash
-docker build -t signal-mcp-server .
+docker build -t signal-api-mcp .
 ```
 
 The image has no HEALTHCHECK. The default stdio transport opens no HTTP port to probe, so a
@@ -75,12 +75,12 @@ exit code instead, or run the image in HTTP mode and probe `/v1/health` on signa
 ## Publishing
 
 A git tag starting with `v` triggers `.github/workflows/publish.yml`. The workflow runs the full
-check suite first, then publishes the npm package to GitHub Packages and the container to GHCR.
-The image lands at `ghcr.io/<owner>/signal-mcp-server`, tagged with the tag name and `latest`.
+check suite first, then publishes the npm package to npmjs.org and the container to GHCR.
+The image lands at `ghcr.io/<owner>/signal-api-mcp`, tagged with the tag name and `latest`.
 
-`package.json` carries a `publishConfig` block that points the npm registry at GitHub Packages with
-public access. The workflow picks up the tag, and the npm package and container publish together.
-Start by bumping the version field, then create the tag and push it:
+The publish step authenticates with an `NPM_TOKEN` secret, which must be set in the repo's
+GitHub settings before tagging. Start by bumping the version field, then create the tag and
+push it:
 
 ```bash
 npm version patch
@@ -88,4 +88,4 @@ git push --tags
 ```
 
 You can also publish manually with `npm publish` after `npm run build`, as long as you are
-authenticated against GitHub Packages.
+authenticated against npmjs.org (`npm login`).

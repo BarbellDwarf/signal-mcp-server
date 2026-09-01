@@ -38,7 +38,7 @@ The API needs a registered number before it can do anything. Pick one of the two
 Open this URL in a browser:
 
 ```
-http://localhost:8080/v1/qrcodelink?device_name=signal-mcp-server
+http://localhost:8080/v1/qrcodelink?device_name=signal-api-mcp
 ```
 
 In the Signal app on your phone, go to Settings, then Linked devices, then Link new device, and
@@ -77,7 +77,7 @@ explains those tools in depth.
 Install the npm package globally:
 
 ```bash
-npm install -g signal-mcp-server
+npm install -g signal-api-mcp
 ```
 
 To run from the repository instead, clone it, run `npm install`, then `npm run build`. The build
@@ -104,14 +104,14 @@ The default transport is stdio, which MCP clients use when they spawn a process.
 environment variables set, and it will wait for a client to connect:
 
 ```bash
-signal-mcp-server
+signal-api-mcp
 ```
 
 For a quick smoke test, ask for version and help:
 
 ```bash
-signal-mcp-server --version
-signal-mcp-server --help
+signal-api-mcp --version
+signal-api-mcp --help
 ```
 
 ## Step 6: connect an MCP client
@@ -125,7 +125,7 @@ Add this server to `~/.config/opencode/opencode.json`:
   "mcp": {
     "signal": {
       "type": "local",
-      "command": ["signal-mcp-server"],
+      "command": ["signal-api-mcp"],
       "environment": {
         "SIGNAL_API_URL": "http://localhost:8080",
         "SIGNAL_NUMBER": "+15551234567"
@@ -144,7 +144,7 @@ Add this server to `claude_desktop_config.json`:
 {
   "mcpServers": {
     "signal": {
-      "command": "signal-mcp-server",
+      "command": "signal-api-mcp",
       "env": {
         "SIGNAL_API_URL": "http://localhost:8080",
         "SIGNAL_NUMBER": "+15551234567"

@@ -15,7 +15,7 @@ Start it exactly as you would start any command, with the environment variables 
 ```bash
 export SIGNAL_API_URL=http://localhost:8080
 export SIGNAL_NUMBER=+15551234567
-signal-mcp-server
+signal-api-mcp
 ```
 
 The process runs until the client closes it. `--version` and `--help` work here too, though an MCP
@@ -29,8 +29,12 @@ Set `SIGNAL_TRANSPORT=http` and the server becomes an HTTP server:
 export SIGNAL_TRANSPORT=http
 export HOST=0.0.0.0
 export PORT=3000
-signal-mcp-server
+export SIGNAL_ALLOWED_HOSTS=<host>:3000
+signal-api-mcp
 ```
+
+`SIGNAL_ALLOWED_HOSTS` matters on a remote bind: requests from other machines arrive with a Host
+header the server cannot guess, and without the override they get a 403.
 
 The MCP endpoint lives at `/mcp`. The server speaks the streamable HTTP flavor of the protocol:
 
@@ -56,10 +60,13 @@ export SIGNAL_TRANSPORT=http
 export HOST=0.0.0.0
 export PORT=3000
 export SIGNAL_API_TOKEN=replace-with-a-long-random-string
-signal-mcp-server
+export SIGNAL_ALLOWED_HOSTS=<host>:3000
+signal-api-mcp
 ```
 
-Then give MetaMCP the endpoint `http://<host>:3000/mcp` and the bearer token. The same recipe works
+Then give MetaMCP the endpoint `http://<host>:3000/mcp` and the bearer token. `SIGNAL_ALLOWED_HOSTS`
+must name the host MetaMCP uses to reach the server, because remote requests carry that Host header
+and the server rejects any Host it does not expect with a 403. The same recipe works
 for any streamable HTTP MCP client. The Docker image packages this server for containerized
 hosting, so you can run it wherever you run containers.
 
