@@ -22,6 +22,7 @@ value on purpose.
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `SIGNAL_ALLOWED_RECIPIENTS` | unset | Any comma-separated string |
 | `SIGNAL_ALLOWED_HOSTS` | unset | Any comma-separated string |
+| `SIGNAL_DISABLED_TOOLS` | unset | Any comma-separated string |
 
 ## SIGNAL_API_URL
 
@@ -163,3 +164,20 @@ until you set the allowlist.
 The allowlist guards `send_message` only. It does not restrict who can message you, and it does not
 affect any other tool. Use it when an agent might send somewhere it should not, and keep the list to
 the recipients that agent is allowed to reach.
+
+## SIGNAL_DISABLED_TOOLS
+
+Comma-separated list of tool names to remove from the MCP surface. Disabled tools are never
+registered, so they do not appear in `tools/list` and an agent cannot call them. This is the
+strongest form of restriction: the agent does not even know the tool exists.
+
+```bash
+export SIGNAL_DISABLED_TOOLS=register_number,verify_number,link_device_qrcode
+```
+
+Names must match the tool names in [docs/tools.md](docs/tools.md) exactly. Whitespace around
+entries is ignored and blank entries are dropped. Unknown names produce a warning on startup but
+do not prevent the server from running, so you can safely deploy a new version before updating
+the list.
+
+When the variable is unset or empty, every tool is registered and available.

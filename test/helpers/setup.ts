@@ -8,6 +8,8 @@ export interface TestConfigOverrides {
   apiToken?: string;
   /** Recipients permitted by SIGNAL_ALLOWED_RECIPIENTS. Empty means unrestricted. */
   allowedRecipients?: string[];
+  /** Tool names to disable. Disabled tools are never registered. */
+  disabledTools?: string[];
 }
 
 /**
@@ -28,6 +30,9 @@ export async function setupServerAndClient(
     apiToken: overrides.apiToken,
     logLevel: "error",
     allowedRecipients: new Set(overrides.allowedRecipients ?? []),
+    ...(overrides.disabledTools && overrides.disabledTools.length > 0
+      ? { disabledTools: new Set(overrides.disabledTools) }
+      : {}),
   };
   const client = new SignalClient({ baseUrl: apiUrl });
   const server = createSignalMcpServer(client, config);

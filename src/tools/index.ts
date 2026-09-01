@@ -16,21 +16,62 @@ import { registerRegisterNumber, registerVerifyNumber } from "./registration.js"
 import { registerSendMessage } from "./send-message.js";
 import { registerGetAbout, registerGetHealth } from "./system.js";
 
-/** Register every tool on the MCP server. */
+/** Every tool name this server knows about, for forward-compatible validation. */
+const ALL_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "send_message",
+  "receive_messages",
+  "list_accounts",
+  "list_contacts",
+  "list_groups",
+  "get_group",
+  "create_group",
+  "update_group",
+  "delete_group",
+  "update_profile",
+  "register_number",
+  "verify_number",
+  "link_device_qrcode",
+  "get_about",
+  "get_health",
+]);
+
+type RegisterFn = (server: McpServer, deps: ToolDeps) => void;
+
+const TOOL_ENTRIES: ReadonlyArray<[string, RegisterFn]> = [
+  ["send_message", registerSendMessage],
+  ["receive_messages", registerReceiveMessages],
+  ["list_accounts", registerListAccounts],
+  ["list_contacts", registerListContacts],
+  ["list_groups", registerListGroups],
+  ["get_group", registerGetGroup],
+  ["create_group", registerCreateGroup],
+  ["update_group", registerUpdateGroup],
+  ["delete_group", registerDeleteGroup],
+  ["update_profile", registerUpdateProfile],
+  ["register_number", registerRegisterNumber],
+  ["verify_number", registerVerifyNumber],
+  ["link_device_qrcode", registerLinkDeviceQrCode],
+  ["get_about", registerGetAbout],
+  ["get_health", registerGetHealth],
+];
+
+/** Register every non-disabled tool on the MCP server. */
 export function registerTools(server: McpServer, deps: ToolDeps): void {
-  registerSendMessage(server, deps);
-  registerReceiveMessages(server, deps);
-  registerListAccounts(server, deps);
-  registerListContacts(server, deps);
-  registerListGroups(server, deps);
-  registerGetGroup(server, deps);
-  registerCreateGroup(server, deps);
-  registerUpdateGroup(server, deps);
-  registerDeleteGroup(server, deps);
-  registerUpdateProfile(server, deps);
-  registerRegisterNumber(server, deps);
-  registerVerifyNumber(server, deps);
-  registerLinkDeviceQrCode(server, deps);
-  registerGetAbout(server, deps);
-  registerGetHealth(server, deps);
+  for (const [name, register] of TOOL_ENTRIES) {
+    if (deps.disabledTools?.has(name)) continue;
+
+    register(server, deps);
+  }
+
+  // Warn about unknown names in the disabled list so operators catch typos
+  // without the server refusing to start.
+  if (deps.disabledTools) {
+    for (const name of deps.disabledTools) {
+      if (!ALL_TOOL_NAMES.has(name)) {
+        // console.warn goes to stderr, which is safe for the stdio transport
+        // since stdout is reserved for JSON-RPC traffic.
+        console.warn(`SIGNAL_DISABLED_TOOLS: unknown tool "${name}" ignored`);
+      }
+    }
+  }
 }
