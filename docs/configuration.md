@@ -15,11 +15,13 @@ value on purpose.
 | `SIGNAL_API_URL` | `http://localhost:8080` | Any URL |
 | `SIGNAL_NUMBER` | unset | Any non-empty string |
 | `SIGNAL_TRANSPORT` | `stdio` | `stdio`, `http` |
-| `HOST` | `0.0.0.0` | Any non-empty string |
+| `HOST` | `127.0.0.1` | Any non-empty string |
 | `PORT` | `3000` | Integer from 0 to 65535 |
+| `SIGNAL_MAX_BODY_BYTES` | `10485760` | Positive integer (bytes) |
 | `SIGNAL_API_TOKEN` | unset | Any non-empty string |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `SIGNAL_ALLOWED_RECIPIENTS` | unset | Any comma-separated string |
+| `SIGNAL_ALLOWED_HOSTS` | unset | Any comma-separated string |
 
 ## SIGNAL_API_URL
 
@@ -76,12 +78,28 @@ These only matter when `SIGNAL_TRANSPORT=http`. `HOST` is the interface to bind 
 the TCP port.
 
 ```bash
-export HOST=0.0.0.0
+export HOST=127.0.0.1
 export PORT=3000
 ```
 
-`0.0.0.0` binds on every interface, which is what you want for a container or a remote host.
-Use `127.0.0.1` to keep the endpoint local only.
+`HOST` defaults to `127.0.0.1`, so the endpoint listens on loopback and nothing outside the machine
+can reach it. Set `HOST=0.0.0.0` when the server runs in a container or on a remote host and other
+machines should connect. Pair a remote bind with `SIGNAL_ALLOWED_HOSTS` (below), because remote
+clients arrive under a hostname the derived list does not cover.
+
+## SIGNAL_MAX_BODY_BYTES
+
+Maximum request body size for the HTTP transport, in bytes. POST requests with a larger body get a
+413 before the server parses anything, so an oversized payload never reaches the MCP layer
+or the Signal backend.
+
+```bash
+export SIGNAL_MAX_BODY_BYTES=10485760
+```
+
+The default is 10485760, i.e. 10 MiB, and the built-in tools need far less than that. Raise it for
+clients that batch unusually large tool arguments. A smaller value works as a guard against
+oversized requests.
 
 ## SIGNAL_API_TOKEN
 
@@ -96,6 +114,25 @@ export SIGNAL_API_TOKEN=replace-with-a-long-random-string
 Generate one with `openssl rand -hex 32` or the equivalent on your system. The token only guards
 the MCP server's own HTTP endpoint. It does nothing for signal-cli-rest-api, which has no
 authentication of its own.
+
+## SIGNAL_ALLOWED_HOSTS
+
+Host header values the HTTP endpoint accepts, as a comma-separated list. The transport compares the
+raw `Host` header exactly, port included, so list every form clients can send:
+
+```bash
+export SIGNAL_ALLOWED_HOSTS=mcp.example.com,mcp.example.com:443
+```
+
+When the variable is unset, the server derives the list after it starts listening: the bind host
+with and without the port, plus `localhost` and `127.0.0.1` forms. That covers loopback access,
+including the ephemeral port you get from `PORT=0`.
+
+Override the derived list when requests arrive under a hostname the server cannot guess. That is
+the case when a reverse proxy terminates TLS in front of the server, or when a remote gateway such
+as MetaMCP forwards requests under its own domain. List the exact host and, where it applies, the
+`host:port` form. Anything else gets a 403 from the transport, which is the DNS rebinding
+protection doing its job.
 
 ## LOG_LEVEL
 

@@ -40,9 +40,11 @@ every variable in detail.
 | `SIGNAL_API_URL` | `http://localhost:8080` | Base URL of signal-cli-rest-api. |
 | `SIGNAL_NUMBER` | empty | Default account used when a tool omits `number`. |
 | `SIGNAL_TRANSPORT` | `stdio` | `stdio` or `http`. |
-| `HOST` | `0.0.0.0` | Bind host for the HTTP transport. |
+| `HOST` | `127.0.0.1` | Bind host for the HTTP transport. |
 | `PORT` | `3000` | Bind port for the HTTP transport. |
 | `SIGNAL_API_TOKEN` | empty | Optional bearer token for the HTTP endpoint. |
+| `SIGNAL_MAX_BODY_BYTES` | `10485760` | Largest POST body the HTTP endpoint accepts, larger requests get a 413. |
+| `SIGNAL_ALLOWED_HOSTS` | empty | Comma-separated Host header allowlist for the HTTP endpoint. Empty derives one from the bind host and port. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error`. |
 | `SIGNAL_ALLOWED_RECIPIENTS` | empty | Comma-separated allowlist of recipients `send_message` may target. |
 
