@@ -24,6 +24,7 @@ export async function setupServerAndClient(
     transport: "stdio",
     host: "127.0.0.1",
     port: 0,
+    maxBodyBytes: 10485760,
     apiToken: overrides.apiToken,
     logLevel: "error",
     allowedRecipients: new Set(overrides.allowedRecipients ?? []),
