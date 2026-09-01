@@ -40,6 +40,8 @@ jobs:
   publish-npm:
     needs: build-and-test
     runs-on: ubuntu-latest
+    # Node 22: npm@latest (12.x) dropped Node 20 support, and the OIDC publish
+    # needs a current npm. Node 22 is already in the CI test matrix.
     permissions:
       contents: read
       # OIDC token for npm trusted publishing (no long-lived NPM_TOKEN secret).
@@ -55,7 +57,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -65,9 +67,9 @@ jobs:
         run: npm run build
 
       - name: Upgrade npm for trusted publishing
-        # Node 20 bundles npm 10, which cannot publish via OIDC. npm 11.5.1+
-        # authenticates the publish with the workflow's OIDC token and attaches
-        # a provenance attestation.
+        # Bundled npm on the runner is older than the OIDC-publish support and
+        # its engine fixes. npm 11.5.1+ authenticates the publish with the
+        # workflow's OIDC token and attaches a provenance attestation.
         run: npm install -g npm@latest
 
       - name: Publish to npm
