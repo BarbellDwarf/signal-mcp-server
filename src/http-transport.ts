@@ -1,6 +1,6 @@
 import http from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import crypto from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
@@ -16,14 +16,47 @@ export interface HttpServerHandle {
 
 export const MCP_PATH = "/mcp";
 
-/** Read the request body into a Buffer. */
-function readBody(req: IncomingMessage): Promise<Buffer> {
+/**
+ * Read the request body into a Buffer, refusing anything over maxBytes. When
+ * the cap is exceeded, buffering stops immediately and the promise resolves
+ * null; the stream keeps draining so the socket ends up in a clean state,
+ * while nothing beyond the cap is ever held in memory.
+ */
+function readBody(req: IncomingMessage, maxBytes: number): Promise<Buffer | null> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
-    req.on("end", () => resolve(Buffer.concat(chunks)));
+    let total = 0;
+    let tooLarge = false;
+    req.on("data", (chunk: Buffer) => {
+      if (tooLarge) return;
+      total += chunk.length;
+      if (total > maxBytes) {
+        tooLarge = true;
+        chunks.length = 0;
+        resolve(null);
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      if (!tooLarge) resolve(Buffer.concat(chunks));
+    });
     req.on("error", reject);
   });
+}
+
+/**
+ * Timing-safe check of the `Authorization: Bearer <token>` header. Both sides
+ * are hashed to a fixed 32-byte digest first, so timingSafeEqual never throws
+ * and the comparison always takes the same time whether the header is missing,
+ * malformed, or merely wrong.
+ */
+function isBearerAuthorized(req: IncomingMessage, expectedToken: string): boolean {
+  const auth = req.headers.authorization;
+  const header = typeof auth === "string" ? auth : "";
+  const expected = createHash("sha256").update(`Bearer ${expectedToken}`).digest();
+  const provided = createHash("sha256").update(header).digest();
+  return timingSafeEqual(expected, provided);
 }
 
 function sendJson(res: ServerResponse, status: number, data: unknown): void {
@@ -39,8 +72,11 @@ function sendJson(res: ServerResponse, status: number, data: unknown): void {
  *
  * Only `{MCP_PATH}` and `/` are served. Each client session gets its own
  * McpServer + transport instance (the MCP SDK only allows one transport
- * connection per Server). When `config.apiToken` is set, every request must
- * carry `Authorization: Bearer <token>`.
+ * connection per Server). Hardening that always applies: when `config.apiToken`
+ * is set, every request must carry `Authorization: Bearer <token>` (checked in
+ * constant time); POST bodies larger than `config.maxBodyBytes` get a 413
+ * before any parsing; and requests whose Host header falls outside the allowed
+ * list get a 403 from the transport's DNS rebinding protection.
  *
  * @param serverFactory creates a fresh McpServer per session (tools are stateless,
  *   so this is cheap and keeps sessions isolated).
@@ -79,21 +115,26 @@ export async function startHttpServer(
       return;
     }
 
-    if (config.apiToken) {
-      const auth = req.headers.authorization;
-      if (auth !== `Bearer ${config.apiToken}`) {
-        sendJson(res, 401, { error: "Unauthorized: missing or invalid bearer token" });
-        return;
-      }
+    if (config.apiToken && !isBearerAuthorized(req, config.apiToken)) {
+      sendJson(res, 401, { error: "Unauthorized: missing or invalid bearer token" });
+      return;
     }
 
     const sessionId =
       typeof req.headers["mcp-session-id"] === "string" ? req.headers["mcp-session-id"] : undefined;
 
-    // Pre-parse the JSON-RPC body for POST requests.
+    // Pre-parse the JSON-RPC body for POST requests. Oversized bodies are
+    // rejected before any buffering or parsing happens (POST only; the other
+    // methods carry no body).
     let parsedBody: unknown;
     if (req.method === "POST") {
-      const body = await readBody(req);
+      const body = await readBody(req, config.maxBodyBytes);
+      if (body === null) {
+        sendJson(res, 413, {
+          error: `Payload too large: body exceeds SIGNAL_MAX_BODY_BYTES (${config.maxBodyBytes} bytes)`,
+        });
+        return;
+      }
       if (body.length > 0) {
         try {
           parsedBody = JSON.parse(body.toString("utf8"));
@@ -137,7 +178,11 @@ export async function startHttpServer(
     // capture the (mutually-referential) transport instance.
     const holder: { transport?: StreamableHTTPServerTransport } = {};
     const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => crypto.randomUUID(),
+      sessionIdGenerator: () => randomUUID(),
+      // DNS rebinding protection: the SDK compares the raw Host header string
+      // exactly, port included, and answers 403 for anything outside the list.
+      enableDnsRebindingProtection: true,
+      allowedHosts,
       onsessioninitialized: (id) => {
         if (holder.transport && id) {
           sessions.set(id, holder.transport);
@@ -175,6 +220,21 @@ export async function startHttpServer(
 
   const address = httpServer.address();
   const port = address && typeof address === "object" ? address.port : config.port;
+
+  // Hosts the transport accepts. The SDK compares the raw Host header, so every
+  // form a local client could send is listed. The port is only known after
+  // listen, because PORT=0 binds an ephemeral port. Operators behind a reverse
+  // proxy or remote gateway override this list via SIGNAL_ALLOWED_HOSTS.
+  const derivedAllowedHosts = [
+    config.host,
+    `${config.host}:${port}`,
+    "localhost",
+    `localhost:${port}`,
+    "127.0.0.1",
+    `127.0.0.1:${port}`,
+  ];
+  const allowedHosts = config.allowedHosts ?? [...new Set(derivedAllowedHosts)];
+
   const host = config.host === "0.0.0.0" ? "127.0.0.1" : config.host;
   const url = `http://${host}:${port}${MCP_PATH}`;
 
