@@ -50,6 +50,7 @@ every variable in detail.
 | `SIGNAL_ALLOWED_HOSTS` | empty | Comma-separated Host header allowlist for the HTTP endpoint. Empty derives one from the bind host and port. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error`. |
 | `SIGNAL_ALLOWED_RECIPIENTS` | empty | Comma-separated allowlist of recipients `send_message` may target. |
+| `SIGNAL_DISABLED_TOOLS` | empty | Comma-separated list of tool names to remove from the MCP surface. |
 
 ## The tools
 

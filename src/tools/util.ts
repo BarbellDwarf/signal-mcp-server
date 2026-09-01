@@ -7,6 +7,8 @@ export interface ToolDeps {
   defaultNumber?: string;
   /** Opt-in allowlist of recipients send_message may target. Empty means unrestricted. */
   allowedRecipients?: Set<string>;
+  /** Tool names the operator has disabled. These are never registered. */
+  disabledTools?: Set<string>;
 }
 
 /** Resolve the effective sender number: explicit argument wins over the default. */
