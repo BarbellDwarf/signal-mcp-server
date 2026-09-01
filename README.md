@@ -1,4 +1,4 @@
-# signal-mcp-server
+# signal-api-mcp
 
 A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for Signal. It talks to a
 [signal-cli-rest-api](https://github.com/bbernhard/signal-cli-rest-api) instance and gives an AI
@@ -20,12 +20,15 @@ docker run -d --name signal-api --restart=always -p 8080:8080 \
   -e 'MODE=json-rpc' bbernhard/signal-cli-rest-api
 
 # 2. install the server
-npm install -g signal-mcp-server
+npm install -g signal-api-mcp
+
+# ⚠ The npm package named "signal-mcp-server" is an unrelated project.
+# Do not install it by mistake.
 
 # 3. run it
 SIGNAL_API_URL=http://localhost:8080 \
 SIGNAL_NUMBER=+15551234567 \
-signal-mcp-server
+signal-api-mcp
 ```
 
 ## Configuration
