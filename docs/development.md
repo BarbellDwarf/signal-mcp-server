@@ -76,11 +76,14 @@ exit code instead, or run the image in HTTP mode and probe `/v1/health` on signa
 
 A git tag starting with `v` triggers `.github/workflows/publish.yml`. The workflow runs the full
 check suite first, then publishes the npm package to npmjs.org and the container to GHCR.
-The image lands at `ghcr.io/<owner>/signal-api-mcp`, tagged with the tag name and `latest`.
+The image lands at `ghcr.io/barbelldwarf/signal-mcp-server`, tagged with the tag name and `latest`.
 
-The publish step authenticates with an `NPM_TOKEN` secret, which must be set in the repo's
-GitHub settings before tagging. Start by bumping the version field, then create the tag and
-push it:
+npm publishing uses [trusted publishing](https://docs.npmjs.com/trusted-publishers): the workflow
+mints a short-lived OIDC token that npm verifies against the publisher record configured for
+`signal-api-mcp` (repository `BarbellDwarf/signal-mcp-server`, workflow `publish.yml`). There is no
+publish token stored anywhere. To change the trusted publisher, open the package on npmjs.com,
+open Settings, and edit the trusted publisher entry. Start by bumping the version field, then
+create the tag and push it:
 
 ```bash
 npm version patch
@@ -88,4 +91,4 @@ git push --tags
 ```
 
 You can also publish manually with `npm publish` after `npm run build`, as long as you are
-authenticated against npmjs.org (`npm login`).
+authenticated against npmjs.org (`npm login`). Manual publishes do not carry provenance.
