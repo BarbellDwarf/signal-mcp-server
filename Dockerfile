@@ -13,9 +13,11 @@ FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/dist ./dist
+# run as the unprivileged node user
+USER node
 EXPOSE 3000
 
-# signal-mcp-server is self-contained: it runs with just the bundled dist/index.js.
+# signal-api-mcp is self-contained: it runs with just the bundled dist/index.js.
 # Default transport is stdio (used by MCP clients that spawn a process).
 # For remote hosting (e.g. MetaMCP) set SIGNAL_TRANSPORT=http (and HOST/PORT).
 # See .env.example for the full list of environment variables.
