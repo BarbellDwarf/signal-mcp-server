@@ -121,5 +121,23 @@ describe("SIGNAL_DISABLED_TOOLS", () => {
       expect(names).not.toContain("bogus_tool");
       expect(names).toEqual(ALL_TOOLS);
     });
+
+    it("warns only once per process, not per server instance", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        // A second server instance (the HTTP transport builds one per session)
+        // with a different unknown name must not produce a second warning.
+        const second = await setupServerAndClient(api.url, {
+          signalNumber: "+15551234567",
+          disabledTools: ["another_bogus_tool"],
+        });
+        const names = await listToolNames(second.client);
+        expect(names).toEqual(ALL_TOOLS);
+        await second.close();
+        expect(warnSpy).not.toHaveBeenCalled();
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
   });
 });

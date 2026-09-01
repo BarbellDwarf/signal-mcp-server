@@ -18,6 +18,9 @@ import { registerGetAbout, registerGetHealth } from "./system.js";
 
 type RegisterFn = (server: McpServer, deps: ToolDeps) => void;
 
+/** Set once the first unknown SIGNAL_DISABLED_TOOLS name has been reported. */
+let warnedUnknownTools = false;
+
 const TOOL_ENTRIES: ReadonlyArray<[string, RegisterFn]> = [
   ["send_message", registerSendMessage],
   ["receive_messages", registerReceiveMessages],
@@ -48,14 +51,15 @@ export function registerTools(server: McpServer, deps: ToolDeps): void {
   }
 
   // Warn about unknown names in the disabled list so operators catch typos
-  // without the server refusing to start.
-  if (deps.disabledTools) {
-    for (const name of deps.disabledTools) {
-      if (!ALL_TOOL_NAMES.has(name)) {
-        // console.warn goes to stderr, which is safe for the stdio transport
-        // since stdout is reserved for JSON-RPC traffic.
-        console.warn(`SIGNAL_DISABLED_TOOLS: unknown tool "${name}" ignored`);
-      }
+  // without the server refusing to start. The warning fires once per process:
+  // in HTTP mode every session builds its own server, so an unconditional warn
+  // would repeat on every session. console.warn writes to stderr, which is
+  // safe for the stdio transport where stdout carries JSON-RPC traffic.
+  if (deps.disabledTools && !warnedUnknownTools) {
+    const unknown = [...deps.disabledTools].filter((name) => !ALL_TOOL_NAMES.has(name));
+    if (unknown.length > 0) {
+      console.warn(`SIGNAL_DISABLED_TOOLS: unknown tool names ignored: ${unknown.join(", ")}`);
+      warnedUnknownTools = true;
     }
   }
 }

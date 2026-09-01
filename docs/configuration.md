@@ -176,7 +176,8 @@ export SIGNAL_DISABLED_TOOLS=register_number,verify_number,link_device_qrcode
 ```
 
 Names must match the tool names in [docs/tools.md](docs/tools.md) exactly. Whitespace around
-entries is ignored and blank entries are dropped. Unknown names produce a warning on startup but
+entries is ignored and blank entries are dropped. Unknown names produce a warning the first time
+they are seen, but
 do not prevent the server from running, so you can safely deploy a new version before updating
 the list.
 
