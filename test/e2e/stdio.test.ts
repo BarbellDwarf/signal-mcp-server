@@ -4,6 +4,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { startMockSignalApi, type MockSignalApiHandle } from "../helpers/mock-signal-api.js";
 import { extractText } from "../helpers/mcp-client.js";
 import { DIST_PATH } from "../helpers/spawn.js";
+import pkg from "../../package.json" with { type: "json" };
 
 const EXPECTED_TOOLS = [
   "send_message",
@@ -63,8 +64,14 @@ describe("e2e over stdio (real server bundle, real MCP client)", () => {
   });
 
   it("logs startup info to stderr (stdout stays clean for the protocol)", async () => {
-    expect(stderrOutput).toContain("signal-mcp-server started");
+    expect(stderrOutput).toContain("signal-api-mcp started");
     expect(stderrOutput).toContain('"transport":"stdio"');
+  });
+
+  it("reports its identity from the package metadata", async () => {
+    const info = client.getServerVersion();
+    expect(info?.name).toBe("signal-api-mcp");
+    expect(info?.version).toBe(pkg.version);
   });
 
   it("calls send_message end-to-end through the mock backend", async () => {
