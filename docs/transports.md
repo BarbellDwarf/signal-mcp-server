@@ -15,7 +15,7 @@ Start it exactly as you would start any command, with the environment variables 
 ```bash
 export SIGNAL_API_URL=http://localhost:8080
 export SIGNAL_NUMBER=+15551234567
-signal-mcp-server
+signal-api-mcp
 ```
 
 The process runs until the client closes it. `--version` and `--help` work here too, though an MCP
@@ -29,7 +29,7 @@ Set `SIGNAL_TRANSPORT=http` and the server becomes an HTTP server:
 export SIGNAL_TRANSPORT=http
 export HOST=0.0.0.0
 export PORT=3000
-signal-mcp-server
+signal-api-mcp
 ```
 
 The MCP endpoint lives at `/mcp`. The server speaks the streamable HTTP flavor of the protocol:
@@ -56,7 +56,7 @@ export SIGNAL_TRANSPORT=http
 export HOST=0.0.0.0
 export PORT=3000
 export SIGNAL_API_TOKEN=replace-with-a-long-random-string
-signal-mcp-server
+signal-api-mcp
 ```
 
 Then give MetaMCP the endpoint `http://<host>:3000/mcp` and the bearer token. The same recipe works
