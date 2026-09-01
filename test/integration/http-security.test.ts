@@ -1,5 +1,5 @@
 import http from "node:http";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import type { SignalConfig } from "../../src/config.js";
 import { startHttpServer, type HttpServerHandle } from "../../src/http-transport.js";
 import { createLogger } from "../../src/logger.js";
@@ -82,6 +82,7 @@ describe("HTTP transport hardening (in-process)", () => {
       host: "127.0.0.1",
       port: 0,
       maxBodyBytes: 10485760,
+      sessionTtlSeconds: 3600,
       logLevel: "error",
       ...overrides,
     };
@@ -229,5 +230,145 @@ describe("HTTP transport hardening (in-process)", () => {
     });
     expect(followUp.status).toBe(200);
     expect(followUp.body).toContain('"result"');
+  });
+
+  // The sweep interval is half the TTL (capped at a minute), so with the 60s
+  // schema minimum it fires at t=30s, 60s, 90s. Expiry needs "idle strictly
+  // past 60s", which lands on the t=90s sweep, hence the 91s advance below.
+  function useFakeSweepTimers(): void {
+    // Fake only the interval and the clock. Sockets, promises, and everything
+    // else stay real, so the HTTP round trips keep working under fake time.
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
+  }
+
+  it("closes a session once it has been idle past the TTL", async () => {
+    useFakeSweepTimers();
+    try {
+      const { url } = await startServer({ sessionTtlSeconds: 60 });
+      const init = await rawRequest(url, { headers: { ...JSON_HEADERS }, body: INITIALIZE });
+      expect(init.status).toBe(200);
+      const sessionId = init.headers["mcp-session-id"] as string;
+      expect(sessionId).toBeTruthy();
+
+      vi.advanceTimersByTime(91_000);
+
+      const post = await rawRequest(url, {
+        headers: { ...JSON_HEADERS, "mcp-session-id": sessionId!, host: url.host },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+      });
+      expect(post.status).toBe(404);
+      expect(JSON.parse(post.body).error).toBe("Session not found");
+
+      // The sweep removed the session itself: a DELETE answers the handler's
+      // own Unknown session error without ever reaching a transport.
+      const del = await rawRequest(url, {
+        method: "DELETE",
+        headers: { "mcp-session-id": sessionId!, host: url.host },
+      });
+      expect(del.status).toBe(404);
+      expect(JSON.parse(del.body).error).toBe("Unknown session");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps a session idle for exactly the TTL, closes it past the TTL", async () => {
+    useFakeSweepTimers();
+    try {
+      const { url } = await startServer({ sessionTtlSeconds: 60 });
+      const init = await rawRequest(url, { headers: { ...JSON_HEADERS }, body: INITIALIZE });
+      expect(init.status).toBe(200);
+      const sessionId = init.headers["mcp-session-id"] as string;
+
+      // t=60s: the sweep fires with exactly 60s of idle. The strictly
+      // past-TTL rule keeps the session, and the POST below (which also
+      // refreshes the clock) proves it answered.
+      vi.advanceTimersByTime(60_000);
+      const atTtl = await rawRequest(url, {
+        headers: { ...JSON_HEADERS, "mcp-session-id": sessionId!, host: url.host },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+      });
+      expect(atTtl.status).toBe(200);
+
+      // Clock is now t=60. Sweeps at t=90 (30s idle) and t=120 (60s idle)
+      // survive, the t=150 sweep sees 90s idle and closes the session.
+      vi.advanceTimersByTime(91_000);
+      const pastTtl = await rawRequest(url, {
+        headers: { ...JSON_HEADERS, "mcp-session-id": sessionId!, host: url.host },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/list" }),
+      });
+      expect(pastTtl.status).toBe(404);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps an active session alive: idle counts from the last request", async () => {
+    useFakeSweepTimers();
+    try {
+      const { url } = await startServer({ sessionTtlSeconds: 60 });
+      const init = await rawRequest(url, { headers: { ...JSON_HEADERS }, body: INITIALIZE });
+      expect(init.status).toBe(200);
+      const sessionId = init.headers["mcp-session-id"] as string;
+
+      // A request at t=45s refreshes lastSeen, so the sweeps at t=60s and
+      // t=90s see 15s and 45s of idle. By t=95s the session is 95s old but
+      // only 50s idle, well inside the TTL, and it must still answer.
+      vi.advanceTimersByTime(45_000);
+      const mid = await rawRequest(url, {
+        headers: { ...JSON_HEADERS, "mcp-session-id": sessionId!, host: url.host },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+      });
+      expect(mid.status).toBe(200);
+
+      vi.advanceTimersByTime(50_000);
+      const late = await rawRequest(url, {
+        headers: { ...JSON_HEADERS, "mcp-session-id": sessionId!, host: url.host },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/list" }),
+      });
+      expect(late.status).toBe(200);
+      expect(late.body).toContain('"result"');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the DELETE path working: the session stays gone afterwards", async () => {
+    const { url } = await startServer({ sessionTtlSeconds: 60 });
+
+    const init = await rawRequest(url, { headers: { ...JSON_HEADERS }, body: INITIALIZE });
+    expect(init.status).toBe(200);
+    const sessionId = init.headers["mcp-session-id"] as string;
+
+    const del = await rawRequest(url, {
+      method: "DELETE",
+      headers: { "mcp-session-id": sessionId!, host: url.host },
+    });
+    expect(del.status).toBe(200);
+
+    const post = await rawRequest(url, {
+      headers: { ...JSON_HEADERS, "mcp-session-id": sessionId!, host: url.host },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+    });
+    expect(post.status).toBe(404);
+    expect(JSON.parse(post.body).error).toBe("Session not found");
+  });
+
+  it("clears the idle sweep timer when the server closes", async () => {
+    useFakeSweepTimers();
+    try {
+      const baseline = vi.getTimerCount();
+      const entry = await startServer({ sessionTtlSeconds: 60 });
+      // startServer registers every server for afterAll teardown. This test
+      // closes its own, so take it off that list and close the mock API too.
+      started.splice(started.indexOf(entry), 1);
+      expect(vi.getTimerCount()).toBe(baseline + 1);
+
+      await entry.server.close();
+      await entry.api.close();
+      expect(vi.getTimerCount()).toBe(baseline);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

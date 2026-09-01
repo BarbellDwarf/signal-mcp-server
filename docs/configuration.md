@@ -18,6 +18,7 @@ value on purpose.
 | `HOST` | `127.0.0.1` | Any non-empty string |
 | `PORT` | `3000` | Integer from 0 to 65535 |
 | `SIGNAL_MAX_BODY_BYTES` | `10485760` | Positive integer (bytes) |
+| `SIGNAL_SESSION_TTL_SECONDS` | `3600` | Integer, minimum 60 (seconds) |
 | `SIGNAL_API_TOKEN` | unset | Any non-empty string |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `SIGNAL_ALLOWED_RECIPIENTS` | unset | Any comma-separated string |
@@ -101,6 +102,28 @@ export SIGNAL_MAX_BODY_BYTES=10485760
 The default is 10485760, i.e. 10 MiB, and the built-in tools need far less than that. Raise it for
 clients that batch unusually large tool arguments. A smaller value works as a guard against
 oversized requests.
+
+## SIGNAL_SESSION_TTL_SECONDS
+
+How long an HTTP session may sit idle before the server closes it, in seconds. Idle means no
+request carrying that session's id reached the session in the window, so every request that
+reaches the session counts, whether it succeeded or failed. Requests rejected earlier (wrong
+token, oversized body, unknown path) do not reset the idle clock. The default is 3600, one hour,
+and the minimum is 60. A smaller value makes the server refuse to start.
+
+```bash
+export SIGNAL_SESSION_TTL_SECONDS=3600
+```
+
+A request that is still being handled is never cut off mid-flight. The sweep skips sessions with
+a request in progress, so an SSE stream held open for hours keeps its session alive until the
+stream ends. The sweep itself runs at most once a minute, so an idle session lingers a little
+longer than the TTL before it disappears.
+
+Once a session has expired, requests carrying its id get a 404 "Session not found", the same
+answer any unknown session id gets. A client is expected to respond by initializing a fresh
+session. The sweep timer is unref'd and cleared when the server shuts down, so it never keeps
+the process alive on its own.
 
 ## SIGNAL_API_TOKEN
 
