@@ -133,6 +133,10 @@ function stripEmptyStrings(env: NodeJS.ProcessEnv): Record<string, string> {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): SignalConfig {
   const parsed = envSchema.safeParse(stripEmptyStrings(env));
   if (!parsed.success) {
+    // .issues is intentional under zod 4: classic ZodError has no .errors
+    // property, and some failure classes (invalid url format) populate only
+    // .issues. Renaming this to .errors would silently drop the field name
+    // from the startup error.
     const issues = parsed.error.issues
       .map((issue) => {
         const field = issue.path.join(".") || "(root)";
