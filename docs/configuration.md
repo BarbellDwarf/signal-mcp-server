@@ -150,7 +150,9 @@ export SIGNAL_ALLOWED_HOSTS=mcp.example.com,mcp.example.com:443
 
 When the variable is unset, the server derives the list after it starts listening: the bind host
 with and without the port, plus `localhost` and `127.0.0.1` forms. That covers loopback access,
-including the ephemeral port you get from `PORT=0`.
+including the ephemeral port you get from `PORT=0`. IPv6 literals arrive bracketed in the Host
+header, so a bind on an IPv6 address also allows the bracketed forms, and a `::` bind allows `::1`
+clients.
 
 Override the derived list when requests arrive under a hostname the server cannot guess. That is
 the case when a reverse proxy terminates TLS in front of the server, or when a remote gateway such

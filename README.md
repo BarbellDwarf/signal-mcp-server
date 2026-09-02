@@ -17,6 +17,7 @@ server. The full walkthrough is in [docs/quickstart.md](docs/quickstart.md).
 ```bash
 # 1. signal-cli-rest-api
 docker run -d --name signal-api --restart=always -p 8080:8080 \
+  -v ~/.local/share/signal-api:/home/.local/share/signal-cli \
   -e 'MODE=json-rpc' bbernhard/signal-cli-rest-api
 
 # 2. install the server
@@ -30,6 +31,10 @@ SIGNAL_API_URL=http://localhost:8080 \
 SIGNAL_NUMBER=+15551234567 \
 signal-api-mcp
 ```
+
+The `-v` flag keeps the Signal account data on your disk across container restarts. Prefer Docker
+for the server itself? The published image and its run instructions are in
+[docs/transports.md](docs/transports.md#run-the-published-docker-image).
 
 ## Configuration
 
@@ -45,13 +50,16 @@ every variable in detail.
 | `SIGNAL_TRANSPORT` | `stdio` | `stdio` or `http`. |
 | `HOST` | `127.0.0.1` | Bind host for the HTTP transport. |
 | `PORT` | `3000` | Bind port for the HTTP transport. |
-| `SIGNAL_API_TOKEN` | empty | Optional bearer token for the HTTP endpoint. |
 | `SIGNAL_MAX_BODY_BYTES` | `10485760` | Largest POST body the HTTP endpoint accepts, larger requests get a 413. |
 | `SIGNAL_SESSION_TTL_SECONDS` | `3600` | Seconds an HTTP session may sit idle before the server closes it. |
+| `SIGNAL_API_TOKEN` | empty | Optional bearer token for the HTTP endpoint. |
 | `SIGNAL_ALLOWED_HOSTS` | empty | Comma-separated Host header allowlist for the HTTP endpoint. Empty derives one from the bind host and port. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error`. |
 | `SIGNAL_ALLOWED_RECIPIENTS` | empty | Comma-separated allowlist of recipients `send_message` may target. |
 | `SIGNAL_DISABLED_TOOLS` | empty | Comma-separated list of tool names to remove from the MCP surface. |
+
+The table follows the same order as [docs/configuration.md](docs/configuration.md), which explains
+each variable in its own section.
 
 ## The tools
 
@@ -62,10 +70,23 @@ maps to one signal-cli-rest-api endpoint, and [docs/tools.md](docs/tools.md) doc
 
 ## Security
 
-The HTTP transport binds to `127.0.0.1` by default and accepts an optional bearer token, a
-recipient allowlist for `send_message`, DNS rebinding protection, body size limits, and session
-expiry. CI runs an audit gate on every pull request. [SECURITY.md](SECURITY.md) has the
-vulnerability reporting policy, and [docs/security.md](docs/security.md) covers the threat model.
+The HTTP transport binds to `127.0.0.1` by default. An optional bearer token guards the endpoint,
+DNS rebinding protection filters the `Host` header, oversized requests get cut off, and idle
+sessions expire. A recipient allowlist can constrain `send_message`. CI runs an audit gate on every
+pull request. [SECURITY.md](SECURITY.md) has the vulnerability reporting policy, and
+[docs/security.md](docs/security.md) covers the threat model.
+
+## Common errors
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| 401 `Unauthorized: missing or invalid bearer token` | `SIGNAL_API_TOKEN` is set and the request carries no header or the wrong value. | Send `Authorization: Bearer <token>`, or clear the variable. |
+| 403 `Invalid Host header: ...` | DNS rebinding protection: the `Host` header is not on the allowlist. | Add the exact `host:port` form to `SIGNAL_ALLOWED_HOSTS`. |
+| 413 `Payload too large` | The POST body exceeded `SIGNAL_MAX_BODY_BYTES`. | Shrink the request or raise the cap. |
+| 404 `Session not found` | The HTTP session idled past `SIGNAL_SESSION_TTL_SECONDS`. | Initialize a fresh session. |
+| Error naming blocked recipients | `SIGNAL_ALLOWED_RECIPIENTS` is set and a recipient is outside it. | Add the recipient to the list, or send to someone on it. |
+| `No Signal account number was provided` | No `number` argument and no `SIGNAL_NUMBER` default. | Pass `number` or set the variable. |
+| An HTTP error from the backend | signal-cli-rest-api refused the call. | The error body carries the backend's reason; check the backend container's logs. |
 
 ## Guides
 

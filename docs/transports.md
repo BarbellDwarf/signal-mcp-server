@@ -29,6 +29,7 @@ Set `SIGNAL_TRANSPORT=http` and the server becomes an HTTP server:
 export SIGNAL_TRANSPORT=http
 export HOST=0.0.0.0
 export PORT=3000
+# <host> is the hostname clients use to reach this server
 export SIGNAL_ALLOWED_HOSTS=<host>:3000
 signal-api-mcp
 ```
@@ -49,6 +50,33 @@ server treats `/mcp` and `/` as the same endpoint, and anything else returns a 4
 
 When `SIGNAL_API_TOKEN` is set, every request must carry `Authorization: Bearer <token>`.
 Requests without the header, or with the wrong token, get a 401.
+
+## Run the published Docker image
+
+Every release publishes an image to GHCR, tagged with the release name and `latest`:
+
+```bash
+docker pull ghcr.io/barbelldwarf/signal-mcp-server:v0.2.0
+```
+
+For remote hosting, run it in HTTP mode with the container binding on all interfaces, so the port
+mapping can reach the server:
+
+```bash
+docker run -d --name signal-mcp -p 3000:3000 \
+  -e SIGNAL_API_URL=http://host.docker.internal:8080 \
+  -e SIGNAL_NUMBER=+15551234567 \
+  -e SIGNAL_TRANSPORT=http \
+  -e HOST=0.0.0.0 \
+  -e SIGNAL_ALLOWED_HOSTS=<host>:3000 \
+  -e SIGNAL_API_TOKEN=replace-with-a-long-random-string \
+  ghcr.io/barbelldwarf/signal-mcp-server:v0.2.0
+```
+
+`HOST=0.0.0.0` matters here: the server binds `127.0.0.1` by default, and a loopback bind inside
+the container is unreachable through a published port. The image runs as the unprivileged `node`
+user. For local clients that spawn a process, use the npm package instead; the image exists for
+hosting.
 
 ## Hosting on MetaMCP
 
