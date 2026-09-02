@@ -24,9 +24,10 @@ npm install
 ## The build
 
 `npm run build` runs `scripts/build.mjs`, which drives esbuild. The result is `dist/index.js`, a
-single file with every dependency inlined. The bundle is ESM, targets Node 20, carries a shebang
-line so it runs directly, and ships with a source map. `package.json` points `main`, `types`, and
-`bin` at this file, which is why the package needs no `node_modules` at runtime.
+single file with every dependency inlined. The bundle is ESM, targets Node 20, and carries a
+shebang line so it runs directly. esbuild emits a source map next to it for local debugging; the
+npm tarball ships only `dist/index.js`, so published installs carry no map. `package.json` points
+`main` and `bin` at this file, which is why the package needs no `node_modules` at runtime.
 
 The self-contained bundle is the point. You can copy `dist/index.js` to a machine, run it with
 `node dist/index.js`, and get a working MCP server as long as the environment variables are set.
@@ -47,17 +48,21 @@ needed and the tests work offline.
 ## Docker image
 
 The `Dockerfile` uses two stages. The build stage installs dependencies and runs the esbuild
-bundle. The runtime stage copies only `dist` onto a `node:20-alpine` base, so the image holds the
-bundle and the Node runtime, nothing else. Port 3000 is exported for the HTTP transport.
+bundle. The runtime stage copies only `dist` onto a `node:20-alpine` base and runs as the
+unprivileged `node` user, so the image holds the bundle and the Node runtime, nothing else. Port
+3000 is exported for the HTTP transport.
 
 The default command runs `node dist/index.js`, which means the default transport is stdio. To use
-the HTTP transport in the container, pass the environment variables:
+the HTTP transport in a container, pass the environment variables. `HOST=0.0.0.0` matters: the
+server binds `127.0.0.1` by default, and a loopback bind inside the container is unreachable
+through a published port.
 
 ```bash
 docker run --rm -p 3000:3000 \
   -e SIGNAL_API_URL=http://host.docker.internal:8080 \
   -e SIGNAL_NUMBER=+15551234567 \
   -e SIGNAL_TRANSPORT=http \
+  -e HOST=0.0.0.0 \
   -e SIGNAL_API_TOKEN=replace-with-a-long-random-string \
   signal-api-mcp
 ```
@@ -67,6 +72,9 @@ Build the image locally with:
 ```bash
 docker build -t signal-api-mcp .
 ```
+
+The published image runs the same way; see
+[docs/transports.md](transports.md#run-the-published-docker-image) for the GHCR tags.
 
 The image has no HEALTHCHECK. The default stdio transport opens no HTTP port to probe, so a
 generic check would flag a healthy server as unhealthy. Orchestrators should rely on the process

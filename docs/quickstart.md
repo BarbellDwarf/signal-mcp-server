@@ -81,7 +81,9 @@ npm install -g signal-api-mcp
 ```
 
 To run from the repository instead, clone it, run `npm install`, then `npm run build`. The build
-creates `dist/index.js`, a single self-contained file.
+creates `dist/index.js`, a single self-contained file. That path gives you no global command:
+wherever the steps below say `signal-api-mcp`, run `npm start` or `node dist/index.js` from the
+repository instead.
 
 ## Step 4: set the environment variables
 
@@ -156,6 +158,9 @@ Add this server to `claude_desktop_config.json`:
 
 Restart the client after saving the file. The tools become available as ordinary tools in the
 conversation.
+
+Not spawning a local process? [docs/transports.md](docs/transports.md) covers the HTTP transport,
+remote hosting on MetaMCP, and the published Docker image.
 
 ## Send your first message
 
